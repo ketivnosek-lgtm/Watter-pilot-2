@@ -1,6 +1,8 @@
 package cz.waterpilot.two
 
 import android.os.Bundle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
@@ -34,6 +36,11 @@ private fun WaterPilotScreen() {
     var page by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     var drag by remember { mutableFloatStateOf(0f) }
+    var weather by remember { mutableStateOf<WeatherNow?>(null) }
+    LaunchedEffect(page) {
+        weather = null
+        if (page < 5) weather = withContext(Dispatchers.IO) { runCatching { fetchWeather(page) }.getOrNull() }
+    }
     val compact = LocalConfiguration.current.screenHeightDp < 740
     val gap = if (compact) 8.dp else 15.dp
     MaterialTheme(colorScheme = darkColorScheme(background = Color.Black, surface = Color.Black, primary = Cyan)) {
@@ -97,12 +104,12 @@ private fun WaterPilotScreen() {
                     TwoValues("Velká voda", "—:—  /  — m", "Malá voda", "—:—  /  — m")
                 }
                 Divider(color = Muted.copy(alpha = .55f))
-                TwoValues("🌡 Teplota", "— °C", "≋ Vítr", "— Bft")
-                Text("Směr větru: — (North / Northwest / West…)", color = Cyan, fontSize = 13.sp)
+                TwoValues("🌡 Teplota", weather?.temperature ?: "— °C", "≋ Vítr", weather?.windBft ?: "— Bft")
+                Text("Směr větru: " + (weather?.direction ?: "—"), color = Cyan, fontSize = 13.sp)
                 Divider(color = Muted.copy(alpha = .55f))
-                TwoValues("◉ Viditelnost", "— km", "☁ Počasí", "—")
+                TwoValues("◉ Viditelnost", weather?.visibility ?: "— km", "☁ Počasí", weather?.description ?: "—")
                 Divider(color = Muted.copy(alpha = .55f))
-                Text("Údaje čekají na připojení ověřených zdrojů.", color = Muted, fontSize = 12.sp)
+                Text("Počasí: Open-Meteo. Vodní údaje zatím nejsou připojené.", color = Muted, fontSize = 12.sp)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
