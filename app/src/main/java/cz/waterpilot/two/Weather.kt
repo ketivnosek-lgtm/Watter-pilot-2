@@ -48,7 +48,10 @@ fun fetchWeather(index: Int): WeatherNow? {
             95, 96, 99 -> "Bouřka"; else -> "Neznámé"
         }
         val hourly = root.optJSONObject("hourly")
-        val visibility = hourly?.optJSONArray("visibility")?.optDouble(0, Double.NaN)
+        val hours = hourly?.optJSONArray("time")
+        val currentHour = current.optString("time").take(13)
+        val hourIndex = (0 until (hours?.length() ?: 0)).firstOrNull { hours?.optString(it)?.startsWith(currentHour) == true } ?: 0
+        val visibility = hourly?.optJSONArray("visibility")?.optDouble(hourIndex, Double.NaN)
         return WeatherNow(
             String.format(Locale.US, "%.0f °C", current.getDouble("temperature_2m")),
             "$bft Bft", direction,
