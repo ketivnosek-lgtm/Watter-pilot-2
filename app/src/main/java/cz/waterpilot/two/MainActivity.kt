@@ -1,0 +1,130 @@
+package cz.waterpilot.two
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.*
+import androidx.compose.ui.platform.LocalConfiguration
+
+private val Cyan = Color(0xFF16D8EE)
+private val Muted = Color(0xFFACB7C0)
+private val White = Color.White
+private val Places = listOf("Duisburg", "Rotterdam", "Hansweert", "Terneuzen", "Yerseke", "MGD Nijmegen")
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { WaterPilotScreen() }
+    }
+}
+
+@Composable
+private fun WaterPilotScreen() {
+    var page by remember { mutableIntStateOf(0) }
+    var menu by remember { mutableStateOf(false) }
+    var drag by remember { mutableFloatStateOf(0f) }
+    val compact = LocalConfiguration.current.screenHeightDp < 740
+    val gap = if (compact) 8.dp else 15.dp
+    MaterialTheme(colorScheme = darkColorScheme(background = Color.Black, surface = Color.Black, primary = Cyan)) {
+        Column(
+            modifier = Modifier.fillMaxSize().background(Color.Black)
+                .systemBarsPadding().padding(horizontal = 17.dp, vertical = 8.dp)
+                .pointerInput(page) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (drag < -65) page = (page + 1).coerceAtMost(Places.lastIndex)
+                            if (drag > 65) page = (page - 1).coerceAtLeast(0)
+                            drag = 0f
+                        },
+                        onHorizontalDrag = { change, amount -> drag += amount; change.consume() }
+                    )
+                },
+            verticalArrangement = Arrangement.spacedBy(gap)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("≋", color = Cyan, fontSize = 26.sp)
+                Text("WATER PILOT", color = Cyan, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                Text("⚙", color = Muted, fontSize = 23.sp)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("❮", color = if (page > 0) White else Muted, fontSize = 26.sp, modifier = Modifier.clickable { page = (page - 1).coerceAtLeast(0) }.padding(8.dp))
+                Box {
+                    Text(Places[page] + " ⌄", color = White, fontWeight = FontWeight.Bold, fontSize = 24.sp, modifier = Modifier.clickable { menu = true }.padding(8.dp))
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Color(0xFF171717)) {
+                        Places.forEachIndexed { i, place ->
+                            DropdownMenuItem(text = { Text(place, color = White) }, onClick = { page = i; menu = false })
+                        }
+                    }
+                }
+                Text("❯", color = if (page < Places.lastIndex) White else Muted, fontSize = 26.sp, modifier = Modifier.clickable { page = (page + 1).coerceAtMost(Places.lastIndex) }.padding(8.dp))
+            }
+            Divider(color = Muted.copy(alpha = .55f))
+            if (page == 5) {
+                Text("MINIMÁLNÍ PLAVEBNÍ HLOUBKA", color = Muted, fontSize = 15.sp)
+                Text("MGD Nijmegen", color = White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+                Text("Údaj není dostupný", color = Muted, fontSize = 18.sp)
+                Text("Zdroj měření a čas aktualizace se doplní po ověření datového rozhraní.", color = Muted)
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (page == 0) "VODNÍ STAV" else "HLADINA NAP", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Poslední měření: —", color = Muted, fontSize = 12.sp)
+                }
+                Text(if (page == 0) "— cm" else "— m", color = White, fontWeight = FontWeight.Bold, fontSize = if (compact) 45.sp else 58.sp)
+                Text("Změna hladiny: —", color = Cyan, fontSize = 15.sp)
+                Divider(color = Muted.copy(alpha = .55f))
+                if (page == 0) {
+                    Text("Předpověď hladiny", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    TwoValues("Zítra", "— cm", "Pozítří", "— cm")
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Příliv / Odliv", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text("Aktuálně: —", color = Cyan, fontSize = 14.sp)
+                    }
+                    TwoValues("Příliv", "—:—  /  — m", "Odliv", "—:—  /  — m")
+                    Divider(color = Muted.copy(alpha = .55f))
+                    Text("Maximální a minimální hladina", color = White, fontWeight = FontWeight.Bold, fontSize = 19.sp)
+                    TwoValues("Velká voda", "—:—  /  — m", "Malá voda", "—:—  /  — m")
+                }
+                Divider(color = Muted.copy(alpha = .55f))
+                TwoValues("🌡 Teplota", "— °C", "≋ Vítr", "— Bft")
+                Text("Směr větru: — (North / Northwest / West…)", color = Cyan, fontSize = 13.sp)
+                Divider(color = Muted.copy(alpha = .55f))
+                TwoValues("◉ Viditelnost", "— km", "☁ Počasí", "—")
+                Divider(color = Muted.copy(alpha = .55f))
+                Text("Údaje čekají na připojení ověřených zdrojů.", color = Muted, fontSize = 12.sp)
+            }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Places.forEachIndexed { i, _ ->
+                    Text("●", color = if (i == page) Cyan else Color.DarkGray, fontSize = 14.sp, modifier = Modifier.clickable { page = i }.padding(horizontal = 4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TwoValues(leftTitle: String, leftValue: String, rightTitle: String, rightValue: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text(leftTitle, color = Muted, fontSize = 14.sp)
+            Text(leftValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+        Box(Modifier.width(1.dp).height(43.dp).background(Muted.copy(alpha = .6f)))
+        Column(Modifier.weight(1f)) {
+            Text(rightTitle, color = Muted, fontSize = 14.sp)
+            Text(rightValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
