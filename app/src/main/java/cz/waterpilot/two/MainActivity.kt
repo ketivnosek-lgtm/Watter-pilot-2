@@ -42,6 +42,9 @@ private fun WaterPilotScreen() {
     var forecast by remember { mutableStateOf<RhineForecast?>(null) }
     LaunchedEffect(page) {
         weather = null
+        duisburg = null
+        forecast = null
+        nijmegen = null
         if (page == 0) {
             duisburg = withContext(Dispatchers.IO) { runCatching { fetchDuisburgGauge() }.getOrNull() }
             forecast = withContext(Dispatchers.IO) { runCatching { fetchDuisburgForecast() }.getOrNull() }
