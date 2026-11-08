@@ -29,12 +29,28 @@ internal val DEFAULT_WATER_SOURCES = listOf(
 internal data class SourcePriority(val metric: String, val providers: List<String>)
 
 internal val WATER_SOURCE_PRIORITIES = listOf(
-    SourcePriority("Duisburg.currentLevel", listOf("WSV PEGELONLINE")),
-    SourcePriority("Duisburg.forecast", listOf("WSV PEGELONLINE WV", "ELWIS / BfG")),
-    SourcePriority("NL.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS latest observation")),
-    SourcePriority("NL.tide", listOf("Rijkswaterstaat DDAPI 2.0", "Waterinfo Vlaanderen (Schelde only, after datum verification)")),
-    SourcePriority("NL.wind", listOf("Open-Meteo", "KNMI (after API access verification)"))
+    // Keep the already working official live gauge reader unchanged.
+    SourcePriority("Duisburg.currentLevel", listOf("WSV PEGELONLINE REST", "ELWIS current gauge (integration pending)")),
+    SourcePriority("Duisburg.forecast", listOf("ELWIS / BfG official forecast (integration pending)", "WSV PEGELONLINE WV when published")),
+    SourcePriority("Duisburg.wind", listOf("Open-Meteo (working)", "DWD open weather data (integration pending)")),
+    SourcePriority("Duisburg.visibility", listOf("Open-Meteo (working)", "DWD observations (integration pending)")),
+    // Independent fallback must use the SAME NAP datum and the same observation type.
+    SourcePriority("Rotterdam.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS", "Port of Rotterdam Weather & Tide (access verification pending)")),
+    SourcePriority("Rotterdam.highLow", listOf("Rijkswaterstaat DDAPI 2.0 weather-adjusted tide", "Rijkswaterstaat astronomical tide (explicitly labeled)", "Port of Rotterdam Weather & Tide (access verification pending)")),
+    SourcePriority("Hansweert.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS", "Waterinfo Vlaanderen (availability and datum verification pending)")),
+    SourcePriority("Hansweert.highLow", listOf("Rijkswaterstaat DDAPI 2.0", "Waterinfo Vlaanderen verified tide prediction", "Rijkswaterstaat astronomical tide (explicitly labeled)")),
+    SourcePriority("Terneuzen.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS", "Waterinfo Vlaanderen (availability and datum verification pending)")),
+    SourcePriority("Terneuzen.highLow", listOf("Rijkswaterstaat DDAPI 2.0", "Waterinfo Vlaanderen verified tide prediction", "Rijkswaterstaat astronomical tide (explicitly labeled)")),
+    SourcePriority("Yerseke.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS")),
+    SourcePriority("Yerseke.highLow", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat astronomical tide (explicitly labeled)", "Waterkaart (license and access verification pending)")),
+    SourcePriority("NL.wind", listOf("Open-Meteo (working)", "KNMI EDR (access verification pending)")),
+    SourcePriority("NL.visibility", listOf("Open-Meteo (working)", "KNMI EDR (access verification pending)")),
+    SourcePriority("Nijmegen.officialMGD", listOf("Rijkswaterstaat Vaarweginformatie (official publication only)")),
+    SourcePriority("Nijmegen.supplementalDepth", listOf("RhinePlanner (orientation only, not MGD)"))
 )
+// This registry expresses desired priorities; a provider is NOT active until its
+// HTTP reader, response validation and screen binding have been implemented.
+// Fallbacks must not silently mix astronomical and meteorological predictions.
 
 /** Returns the first valid value, keeping the source label for UI attribution.
  * An exception, timeout, empty response or rejected value triggers the next reader.
