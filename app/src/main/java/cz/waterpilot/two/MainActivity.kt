@@ -37,9 +37,11 @@ private fun WaterPilotScreen() {
     var menu by remember { mutableStateOf(false) }
     var drag by remember { mutableFloatStateOf(0f) }
     var weather by remember { mutableStateOf<WeatherNow?>(null) }
+    var nijmegen by remember { mutableStateOf<NijmegenEstimate?>(null) }
     LaunchedEffect(page) {
         weather = null
         if (page < 5) weather = withContext(Dispatchers.IO) { runCatching { fetchWeather(page) }.getOrNull() }
+        if (page == 5) nijmegen = withContext(Dispatchers.IO) { runCatching { fetchNijmegenEstimate() }.getOrNull() }
     }
     val compact = LocalConfiguration.current.screenHeightDp < 740
     val gap = if (compact) 8.dp else 15.dp
@@ -80,8 +82,12 @@ private fun WaterPilotScreen() {
             if (page == 5) {
                 Text("MINIMÁLNÍ PLAVEBNÍ HLOUBKA", color = Muted, fontSize = 15.sp)
                 Text("MGD Nijmegen", color = White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
-                Text("Údaj není dostupný", color = Muted, fontSize = 18.sp)
-                Text("Zdroj měření a čas aktualizace se doplní po ověření datového rozhraní.", color = Muted)
+                Text("Oficiální MGD: —", color = White, fontSize = 22.sp)
+                Divider(color = Muted.copy(alpha = .55f))
+                Text("RhinePlanner – doplňkové údaje", color = Cyan, fontSize = 19.sp)
+                TwoValues("Vodní stav", nijmegen?.waterCm ?: "— cm", "Nakládací hloubka", nijmegen?.loadingCm ?: "— cm")
+                Text("Nakládací hloubka je orientační výpočet RhinePlanner, nikoli oficiální MGD ani doporučení k nakládce.", color = Muted, fontSize = 13.sp)
+                Text("Zdroj: rhineplanner.com/waterstanden/nijmegen", color = Muted, fontSize = 12.sp)
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (page == 0) "VODNÍ STAV" else "HLADINA NAP", color = Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
