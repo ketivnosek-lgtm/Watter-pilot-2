@@ -18,6 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 private val Cyan = Color(0xFF16D8EE)
 private val Muted = Color(0xFFACB7C0)
@@ -34,13 +37,22 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun WaterPilotScreen() {
     var page by remember { mutableIntStateOf(0) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshKey++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var menu by remember { mutableStateOf(false) }
     var drag by remember { mutableFloatStateOf(0f) }
     var weather by remember { mutableStateOf<WeatherNow?>(null) }
     var nijmegen by remember { mutableStateOf<NijmegenEstimate?>(null) }
     var duisburg by remember { mutableStateOf<RhineGauge?>(null) }
     var forecast by remember { mutableStateOf<RhineForecast?>(null) }
-    LaunchedEffect(page) {
+    LaunchedEffect(page, refreshKey) {
         weather = null
         duisburg = null
         forecast = null
