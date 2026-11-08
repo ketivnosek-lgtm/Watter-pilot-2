@@ -39,9 +39,13 @@ private fun WaterPilotScreen() {
     var weather by remember { mutableStateOf<WeatherNow?>(null) }
     var nijmegen by remember { mutableStateOf<NijmegenEstimate?>(null) }
     var duisburg by remember { mutableStateOf<RhineGauge?>(null) }
+    var forecast by remember { mutableStateOf<RhineForecast?>(null) }
     LaunchedEffect(page) {
         weather = null
-        if (page == 0) duisburg = withContext(Dispatchers.IO) { runCatching { fetchDuisburgGauge() }.getOrNull() }
+        if (page == 0) {
+            duisburg = withContext(Dispatchers.IO) { runCatching { fetchDuisburgGauge() }.getOrNull() }
+            forecast = withContext(Dispatchers.IO) { runCatching { fetchDuisburgForecast() }.getOrNull() }
+        }
         if (page < 5) weather = withContext(Dispatchers.IO) { runCatching { fetchWeather(page) }.getOrNull() }
         if (page == 5) nijmegen = withContext(Dispatchers.IO) { runCatching { fetchNijmegenEstimate() }.getOrNull() }
     }
@@ -100,7 +104,7 @@ private fun WaterPilotScreen() {
                 Divider(color = Muted.copy(alpha = .55f))
                 if (page == 0) {
                     Text("Předpověď hladiny", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    TwoValues("Zítra", "— cm", "Pozítří", "— cm")
+                    TwoValues("Zítra", forecast?.tomorrow ?: "— cm", "Pozítří", forecast?.dayAfter ?: "— cm")
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Příliv / Odliv", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -117,7 +121,7 @@ private fun WaterPilotScreen() {
                 Divider(color = Muted.copy(alpha = .55f))
                 TwoValues("◉ Viditelnost", weather?.visibility ?: "— km", "☁ Počasí", weather?.description ?: "—")
                 Divider(color = Muted.copy(alpha = .55f))
-                Text(if (page == 0) "Vodní stav: PEGELONLINE (Duisburg-Ruhrort). Předpověď zatím nepřipojena. Počasí: Open-Meteo." else "Počasí: Open-Meteo. Vodní údaje zatím nejsou připojené.", color = Muted, fontSize = 12.sp)
+                Text(if (page == 0) "Vodní stav: PEGELONLINE (Duisburg-Ruhrort). Předpověď: PEGELONLINE WV (pokud dostupná), 13:00. Počasí: Open-Meteo." else "Počasí: Open-Meteo. Vodní údaje zatím nejsou připojené.", color = Muted, fontSize = 12.sp)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
