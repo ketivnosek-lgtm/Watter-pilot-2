@@ -20,3 +20,33 @@ internal val DEFAULT_WATER_SOURCES = listOf(
 // before querying OphalenWaarnemingen; never guess station IDs.
 // Astronomical tides are not weather-adjusted predictions.
 // MGD must never be inferred from gauge readings or RhinePlanner estimates.
+
+
+/**
+ * Source priority per value, not per whole screen. A source can provide water level
+ * without providing tides. Fallbacks must be verified for access and matching datum.
+ */
+internal data class SourcePriority(val metric: String, val providers: List<String>)
+
+internal val WATER_SOURCE_PRIORITIES = listOf(
+    SourcePriority("Duisburg.currentLevel", listOf("WSV PEGELONLINE")),
+    SourcePriority("Duisburg.forecast", listOf("WSV PEGELONLINE WV", "ELWIS / BfG")),
+    SourcePriority("NL.currentLevel", listOf("Rijkswaterstaat DDAPI 2.0", "Rijkswaterstaat WFS latest observation")),
+    SourcePriority("NL.tide", listOf("Rijkswaterstaat DDAPI 2.0", "Waterinfo Vlaanderen (Schelde only, after datum verification)")),
+    SourcePriority("NL.wind", listOf("Open-Meteo", "KNMI (after API access verification)"))
+)
+
+/** Returns the first valid value, keeping the source label for UI attribution.
+ * An exception, timeout, empty response or rejected value triggers the next reader.
+ * Never silently replace an official measurement with a different metric.
+ */
+internal suspend fun <T : Any> firstValidSource(
+    readers: List<Pair<String, suspend () -> T?>>,
+    valid: (T) -> Boolean
+): Pair<String, T>? {
+    for ((name, reader) in readers) {
+        val result = try { reader() } catch (_: Exception) { null }
+        if (result != null && valid(result)) return name to result
+    }
+    return null
+}
