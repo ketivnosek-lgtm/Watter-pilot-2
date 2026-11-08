@@ -50,8 +50,8 @@ fun fetchWeather(index: Int): WeatherNow? {
         val hourly = root.optJSONObject("hourly")
         val hours = hourly?.optJSONArray("time")
         val currentHour = current.optString("time").take(13)
-        val hourIndex = (0 until (hours?.length() ?: 0)).firstOrNull { hours?.optString(it)?.startsWith(currentHour) == true } ?: 0
-        val visibility = hourly?.optJSONArray("visibility")?.optDouble(hourIndex, Double.NaN)
+        val hourIndex = (0 until (hours?.length() ?: 0)).firstOrNull { hours?.optString(it)?.startsWith(currentHour) == true }
+        val visibility = hourIndex?.let { hourly?.optJSONArray("visibility")?.optDouble(it, Double.NaN) }
         return WeatherNow(
             String.format(Locale.US, "%.0f °C", current.getDouble("temperature_2m")),
             "$bft Bft", direction,
