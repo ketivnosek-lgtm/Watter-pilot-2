@@ -1,0 +1,55 @@
+name: Water source diagnostics
+on:
+  push:
+    paths:
+      - '.github/workflows/water-diagnostics.yml'
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe official sources
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, json
+          urls = {
+              'RWS catalog': ('https://ddapi20-waterwebservices.rijkswaterstaat.nl/METADATASERVICES/OphalenCatalogus', {'CatalogusFilter': {'Eenheden': True, 'Grootheden': True, 'Hoedanigheden': True}}),
+              'ELWIS': ('https://www.elwis.de/DE/dynamisch/Wasserstaende/Pegelvorhersage%3ADUISBURG-RUHRORT', None),
+              'PEGELONLINE': ('https://pegelonline.wsv.de/webservices/rest-api/v2/stations/DUISBURG-RUHRORT.json?includeTimeseries=true', None)
+          }
+          failures = []
+          for name, (url, payload) in urls.items():
+              try:
+                  req = urllib.request.Request(url, data=json.dumps(payload).encode() if payload else None, headers={'Content-Type':'application/json','User-Agent':'WaterPilot2 diagnostics'})
+                  with urllib.request.urlopen(req, timeout=40) as response:
+                      body = response.read()
+                      print(name, response.status, len(body), response.headers.get('Content-Type'))
+                  if name == 'RWS catalog':
+                      obj = json.loads(body)
+                      print('Catalog keys:', list(obj))
+                      for key, value in obj.items():
+                          if isinstance(value, list):
+                              print(key, len(value))
+                              for row in value:
+                                  if isinstance(row, dict) and any(s in str(row).lower() for s in ['rotterdam','hansweert','terneuzen','yerseke']):
+                                      print(str(row)[:1500])
+                      open('rws-catalog.json','wb').write(body)
+                  else:
+                      open(name.lower()+'.txt','wb').write(body)
+                      print(body[:1000].decode(errors='replace'))
+              except Exception as exc:
+                  print(name, type(exc).__name__, str(exc))
+                  failures.append(name)
+          if failures:
+              raise SystemExit('Failed probes: '+', '.join(failures))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: water-source-responses
+          path: |
+            rws-catalog.json
+            elwis.txt
+            pegelonline.txt
+          if-no-files-found: warn
