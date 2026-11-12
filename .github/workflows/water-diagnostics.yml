@@ -61,26 +61,27 @@ jobs:
           p=Rows(); p.feed(open('elwis.txt').read())
           print('ELWIS TABLE ROWS', json.dumps(p.rows, ensure_ascii=False)[:18000])
           catalog=json.load(open('rws-catalog.json'))
-          locations=[l for l in catalog['LocatieLijst'] if l.get('Code') in ('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')]
-          meta={m.get('AquoMetadata_MessageID'):m for m in catalog['AquoMetadataLijst']}
           from datetime import datetime, timedelta, timezone
           now=datetime.now(timezone.utc)
           def stamp(t): return t.isoformat(timespec='milliseconds')
-          for loc in locations:
-              links=[a for a in catalog['AquoMetadataLocatieLijst'] if a.get('Locatie_MessageID')==loc['Locatie_MessageID']]
-              print('STATION',loc['Code'],'LINKS',json.dumps(links)[:2500])
-              for link in links:
-                  m=meta.get(link.get('AquoMetadata_MessageID'),{})
-                  if not m: continue
-                  s=json.dumps(m,ensure_ascii=False)
-                  if 'WATHTE' not in s.upper() or 'NAP' not in s.upper(): continue
-                  print('WATER METADATA',loc['Code'],s)
-                  payload={'Locatie':{k:loc[k] for k in ('Code','Lat','Lon')},'AquoPlusWaarnemingMetadata':{'AquoMetadata':{k:m[k] for k in ('Eenheid','Grootheid','Hoedanigheid') if k in m}},'Periode':{'Begindatumtijd':stamp(now-timedelta(hours=2)),'Einddatumtijd':stamp(now+timedelta(hours=30))}}
+          codes=('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')
+          locations={l['Code'].lower():l for l in catalog['LocatieLijst'] if l.get('Code')}
+          for code in codes:
+              if code not in locations:
+                  print('STATION NOT FOUND',code); continue
+              loc=locations[code]
+              print('STATION',json.dumps(loc,ensure_ascii=False))
+              for kind, metadata, begin, end in [
+                  ('measured', {'Grootheid':{'Code':'WATHTE'},'Hoedanigheid':{'Code':'NAP'},'ProcesType':'meting'},now-timedelta(hours=3),now),
+                  ('extremes', {'Groepering':{'Code':'GETETBRKD2'}},now-timedelta(hours=1),now+timedelta(hours=36)),
+                  ('astronomical', {'Grootheid':{'Code':'WATHTE'},'Hoedanigheid':{'Code':'NAP'},'ProcesType':'astronomisch'},now-timedelta(hours=1),now+timedelta(hours=36))]:
+                  payload={'Locatie':{'Code':loc['Code']},'AquoPlusWaarnemingMetadata':{'AquoMetadata':metadata},'Periode':{'Begindatumtijd':stamp(begin),'Einddatumtijd':stamp(end)}}
                   try:
                       req=urllib.request.Request('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
                       with urllib.request.urlopen(req,timeout=25) as response: data=json.load(response)
-                      print('OBSERVATIONS',loc['Code'],json.dumps(data,ensure_ascii=False)[:3500])
-                  except Exception as exc: print('OBSERVATION ERROR',loc['Code'],str(exc))
+                      print('OBSERVATIONS',code,kind,json.dumps(data,ensure_ascii=False)[:6500])
+                      with open('rws-'+code+'-'+kind+'.json','w') as out: json.dump(data,out,ensure_ascii=False)
+                  except Exception as exc: print('OBSERVATION ERROR',code,kind,str(exc))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
@@ -88,6 +89,7 @@ jobs:
           name: water-source-responses
           path: |
             rws-catalog.json
+            rws-*.json
             elwis.txt
             pegelonline.txt
           if-no-files-found: warn
