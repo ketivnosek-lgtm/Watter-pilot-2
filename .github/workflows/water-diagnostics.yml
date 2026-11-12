@@ -49,15 +49,15 @@ jobs:
               def __init__(self):
                   super().__init__(); self.row=None; self.cell=None; self.rows=[]
               def handle_starttag(self, tag, attrs):
-                  if tag=='tr': self.row=[]
+                  if tag=='tr': self.row=[]; self.cell=None
                   if tag in ('td','th') and self.row is not None: self.cell=[]
               def handle_data(self, data):
                   if self.cell is not None: self.cell.append(data)
               def handle_endtag(self, tag):
-                  if tag in ('td','th') and self.cell is not None:
+                  if tag in ('td','th') and self.cell is not None and self.row is not None:
                       self.row.append(' '.join(' '.join(self.cell).split())); self.cell=None
                   if tag=='tr' and self.row is not None:
-                      self.rows.append(self.row); self.row=None
+                      self.rows.append(self.row); self.row=None; self.cell=None
           p=Rows(); p.feed(open('elwis.txt').read())
           print('ELWIS TABLE ROWS', json.dumps(p.rows, ensure_ascii=False)[:18000])
           catalog=json.load(open('rws-catalog.json'))
