@@ -43,6 +43,44 @@ jobs:
                   failures.append(name)
           if failures:
               raise SystemExit('Failed probes: '+', '.join(failures))
+          # Inspect actual forecast rows and station-specific metadata, not just HTTP status.
+          from html.parser import HTMLParser
+          class Rows(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.row=None; self.cell=None; self.rows=[]
+              def handle_starttag(self, tag, attrs):
+                  if tag=='tr': self.row=[]
+                  if tag in ('td','th') and self.row is not None: self.cell=[]
+              def handle_data(self, data):
+                  if self.cell is not None: self.cell.append(data)
+              def handle_endtag(self, tag):
+                  if tag in ('td','th') and self.cell is not None:
+                      self.row.append(' '.join(' '.join(self.cell).split())); self.cell=None
+                  if tag=='tr' and self.row is not None:
+                      self.rows.append(self.row); self.row=None
+          p=Rows(); p.feed(open('elwis.txt').read())
+          print('ELWIS TABLE ROWS', json.dumps(p.rows, ensure_ascii=False)[:18000])
+          catalog=json.load(open('rws-catalog.json'))
+          locations=[l for l in catalog['LocatieLijst'] if l.get('Code') in ('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')]
+          meta={m.get('AquoMetadata_MessageID'):m for m in catalog['AquoMetadataLijst']}
+          from datetime import datetime, timedelta, timezone
+          now=datetime.now(timezone.utc)
+          def stamp(t): return t.isoformat(timespec='milliseconds')
+          for loc in locations:
+              links=[a for a in catalog['AquoMetadataLocatieLijst'] if a.get('Locatie_MessageID')==loc['Locatie_MessageID']]
+              print('STATION',loc['Code'],'LINKS',json.dumps(links)[:2500])
+              for link in links:
+                  m=meta.get(link.get('AquoMetadata_MessageID'),{})
+                  if not m: continue
+                  s=json.dumps(m,ensure_ascii=False)
+                  if 'WATHTE' not in s.upper() or 'NAP' not in s.upper(): continue
+                  print('WATER METADATA',loc['Code'],s)
+                  payload={'Locatie':{k:loc[k] for k in ('Code','Lat','Lon')},'AquoPlusWaarnemingMetadata':{'AquoMetadata':{k:m[k] for k in ('Eenheid','Grootheid','Hoedanigheid') if k in m}},'Periode':{'Begindatumtijd':stamp(now-timedelta(hours=2)),'Einddatumtijd':stamp(now+timedelta(hours=30))}}
+                  try:
+                      req=urllib.request.Request('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
+                      with urllib.request.urlopen(req,timeout=25) as response: data=json.load(response)
+                      print('OBSERVATIONS',loc['Code'],json.dumps(data,ensure_ascii=False)[:3500])
+                  except Exception as exc: print('OBSERVATION ERROR',loc['Code'],str(exc))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
