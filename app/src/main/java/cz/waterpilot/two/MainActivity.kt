@@ -136,7 +136,7 @@ private fun WaterPilotScreen() {
                 Divider(color = Muted.copy(alpha = .55f))
                 TwoValues("◉ Viditelnost", weather?.visibility ?: "— km", "☁ Počasí", weather?.description ?: "—")
                 Divider(color = Muted.copy(alpha = .55f))
-                Text(if (page == 0) "Vodní stav: PEGELONLINE (Duisburg-Ruhrort). Předpověď: PEGELONLINE WV (pokud dostupná), 13:00. Počasí: Open-Meteo." else "Počasí: Open-Meteo. Vodní údaje zatím nejsou připojené.", color = Muted, fontSize = 12.sp)
+                Text(if (page == 0) "Vodní stav: PEGELONLINE (Duisburg-Ruhrort). Předpověď: ${forecast?.source ?: "nedostupná"}, 13:00. Počasí: Open-Meteo." else "Počasí: Open-Meteo. Vodní údaje zatím nejsou připojené.", color = Muted, fontSize = 12.sp)
             }
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
