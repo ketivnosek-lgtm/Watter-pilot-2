@@ -2,6 +2,8 @@ package cz.waterpilot.two
 
 import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,13 +61,27 @@ private fun WaterPilotScreen() {
         duisburg = null
         forecast = null
         nijmegen = null
-        if (page == 0) {
-            duisburg = withContext(Dispatchers.IO) { runCatching { fetchDuisburgGauge() }.getOrNull() }
-            forecast = withContext(Dispatchers.IO) { runCatching { fetchDuisburgForecast() }.getOrNull() }
+        val requestedPage = page
+        coroutineScope {
+            // Independent sources must not block each other when one endpoint is slow.
+            if (requestedPage < 5) launch {
+                weather = withContext(Dispatchers.IO) { runCatching { fetchWeather(requestedPage) }.getOrNull() }
+            }
+            if (requestedPage == 0) {
+                launch {
+                    duisburg = withContext(Dispatchers.IO) { runCatching { fetchDuisburgGauge() }.getOrNull() }
+                }
+                launch {
+                    forecast = withContext(Dispatchers.IO) { runCatching { fetchDuisburgForecast() }.getOrNull() }
+                }
+            }
+            if (requestedPage in 1..4) launch {
+                nl = withContext(Dispatchers.IO) { runCatching { fetchNlWater(requestedPage) }.getOrNull() }
+            }
+            if (requestedPage == 5) launch {
+                nijmegen = withContext(Dispatchers.IO) { runCatching { fetchNijmegenEstimate() }.getOrNull() }
+            }
         }
-        if (page in 1..4) nl = withContext(Dispatchers.IO) { runCatching { fetchNlWater(page) }.getOrNull() }
-        if (page < 5) weather = withContext(Dispatchers.IO) { runCatching { fetchWeather(page) }.getOrNull() }
-        if (page == 5) nijmegen = withContext(Dispatchers.IO) { runCatching { fetchNijmegenEstimate() }.getOrNull() }
     }
     val compact = LocalConfiguration.current.screenHeightDp < 740
     val gap = if (compact) 8.dp else 15.dp
