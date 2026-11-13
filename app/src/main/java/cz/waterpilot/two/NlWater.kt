@@ -63,6 +63,8 @@ internal fun fetchNlWater(page: Int): NlWater? {
     val now = Instant.now()
     val start = now.minus(3, ChronoUnit.HOURS)
     val end = now.plus(36, ChronoUnit.HOURS)
+    var best: NlWater? = null
+    fun completeness(w: NlWater) = listOf(w.level, w.high, w.low).count { it != null }
     for (station in stations) {
         val level = points(requestNl(station, metadata("meting"), start, now), "meting").filter { !it.time.isAfter(now) }.maxByOrNull { it.time }
         val extremes = requestNl(station, JSONObject().put("Groepering", code("GETETBRKD2")), now, end)
@@ -77,7 +79,10 @@ internal fun fetchNlWater(page: Int): NlWater? {
             if (high == null) high = peaks.firstOrNull { it[1].cm > it[0].cm && it[1].cm >= it[2].cm }?.get(1)
             if (low == null) low = peaks.firstOrNull { it[1].cm < it[0].cm && it[1].cm <= it[2].cm }?.get(1)
         }
-        if (level != null || high != null || low != null) return NlWater(station, level, high, low, Instant.now())
+        val candidate = NlWater(station, level, high, low, Instant.now())
+        val score = completeness(candidate)
+        if (score == 3) return candidate
+        if (score > (best?.let { completeness(it) } ?: 0)) best = candidate
     }
-    return null
+    return best
 }
