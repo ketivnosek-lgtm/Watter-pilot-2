@@ -128,7 +128,7 @@ private fun WaterPilotScreen() {
                         Text("Příliv / Odliv", color = White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         Text("Astronomická předpověď", color = Cyan, fontSize = 12.sp)
                     }
-                    TwoValues("Příští příliv", nlTide(nl?.high), "Příští odliv", nlTide(nl?.low))
+                    TwoValues("Příští příliv", nlTide(nl?.high).replace(" / ", "\n"), "Příští odliv", nlTide(nl?.low).replace(" / ", "\n"), valueLines = 2)
                     Text("Výšky v m NAP; bez vlivu počasí.", color = Muted, fontSize = 12.sp)
                 }
                 Divider(color = Muted.copy(alpha = .55f))
@@ -150,16 +150,16 @@ private fun WaterPilotScreen() {
 }
 
 @Composable
-private fun TwoValues(leftTitle: String, leftValue: String, rightTitle: String, rightValue: String) {
+private fun TwoValues(leftTitle: String, leftValue: String, rightTitle: String, rightValue: String, valueLines: Int = 1) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f)) {
             Text(leftTitle, color = Muted, fontSize = 14.sp)
-            Text(leftValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(leftValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = valueLines)
         }
         Box(Modifier.width(1.dp).height(43.dp).background(Muted.copy(alpha = .6f)))
         Column(Modifier.weight(1f)) {
             Text(rightTitle, color = Muted, fontSize = 14.sp)
-            Text(rightValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(rightValue, color = White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = valueLines)
         }
     }
 }
