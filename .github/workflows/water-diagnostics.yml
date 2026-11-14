@@ -66,7 +66,7 @@ jobs:
           now=datetime.now(timezone.utc)
           def stamp(t): return t.isoformat(timespec='milliseconds')
           codes=('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')
-          locations={l['Code'].lower():l for l in catalog['LocatieLijst'] if l.get('Code')}
+          locations={l['Code'].lower():l for l in catalog.get('LocatieLijst', []) if l.get('Code')}
           observation_failures = []
           for code in codes:
               if code not in locations:
@@ -82,8 +82,21 @@ jobs:
                       req=urllib.request.Request('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
                       with urllib.request.urlopen(req,timeout=25) as response: data=json.load(response)
                       print('OBSERVATIONS',code,kind,json.dumps(data,ensure_ascii=False)[:6500])
-                      if not data.get('WaarnemingenLijst'):
-                          observation_failures.append(code+' '+kind+' empty')
+                      # A nonempty outer list can still contain no usable measurements.
+                      import math
+                      valid = []
+                      for series in data.get('WaarnemingenLijst') or []:
+                          for item in series.get('MetingenLijst') or []:
+                              try:
+                                  value = float(item['Meetwaarde']['Waarde_Numeriek'])
+                                  ts = datetime.fromisoformat(item['Tijdstip'].replace('Z','+00:00'))
+                                  if math.isfinite(value) and abs(value) < 100000 and begin <= ts <= end:
+                                      valid.append((ts.isoformat(), value))
+                              except (KeyError, TypeError, ValueError, OverflowError):
+                                  continue
+                      print('VALID MEASUREMENTS', code, kind, len(valid), valid[:3])
+                      if not valid:
+                          observation_failures.append(code+' '+kind+' no valid values')
                       with open('rws-'+code+'-'+kind+'.json','w') as out: json.dump(data,out,ensure_ascii=False)
                   except Exception as exc:
                       print('OBSERVATION ERROR',code,kind,str(exc))
