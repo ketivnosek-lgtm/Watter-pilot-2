@@ -47,10 +47,11 @@ jobs:
           from html.parser import HTMLParser
           class Rows(HTMLParser):
               def __init__(self):
-                  super().__init__(); self.row=None; self.cell=None; self.rows=[]
+                  super().__init__(); self.row=None; self.cell=None; self.rows=[]; self.spans=[]
               def handle_starttag(self, tag, attrs):
                   if tag=='tr': self.row=[]; self.cell=None
-                  if tag in ('td','th') and self.row is not None: self.cell=[]
+                  if tag in ('td','th') and self.row is not None:
+                      self.cell=[]; self.spans.append((tag,dict(attrs)))
               def handle_data(self, data):
                   if self.cell is not None: self.cell.append(data)
               def handle_endtag(self, tag):
@@ -60,12 +61,13 @@ jobs:
                       self.rows.append(self.row); self.row=None; self.cell=None
           from pathlib import Path
           p=Rows(); p.feed(Path('elwis.txt').read_text() if Path('elwis.txt').exists() else '')
+          print('ELWIS CELL ATTRIBUTES',json.dumps(p.spans[:45]))
           print('ELWIS TABLE ROWS', json.dumps(p.rows, ensure_ascii=False)[:18000])
           catalog=json.load(open('rws-catalog.json')) if Path('rws-catalog.json').exists() else {'LocatieLijst': []}
           from datetime import datetime, timedelta, timezone
           now=datetime.now(timezone.utc)
           def stamp(t): return t.isoformat(timespec='milliseconds')
-          codes=('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')
+          codes=('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven','rotterdam.nieuwemaas.boerengat','rotterdam.brienenoordbrug','rotterdam.vanbrienenoordbrug','rotterdam.ijzerwerkerkade','rotterdam.kuip','rotterdam.waalhaven.1')
           locations={l['Code'].lower():l for l in catalog.get('LocatieLijst', []) if l.get('Code')}
           observation_failures = []
           for code in codes:
@@ -80,12 +82,17 @@ jobs:
                   payload={'Locatie':{'Code':loc['Code']},'AquoPlusWaarnemingMetadata':{'AquoMetadata':metadata},'Periode':{'Begindatumtijd':stamp(begin),'Einddatumtijd':stamp(end)}}
                   try:
                       req=urllib.request.Request('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
-                      with urllib.request.urlopen(req,timeout=25) as response: data=json.load(response)
+                      with urllib.request.urlopen(req,timeout=25) as response:
+                          raw=response.read()
+                          print('HTTP',code,kind,response.status,response.headers.get('Content-Type'),len(raw),repr(raw[:160]))
+                          data=json.loads(raw)
                       print('OBSERVATIONS',code,kind,json.dumps(data,ensure_ascii=False)[:6500])
                       # A nonempty outer list can still contain no usable measurements.
                       import math
                       valid = []
                       for series in data.get('WaarnemingenLijst') or []:
+                          meta=series.get('AquoMetadata') or {}
+                          if meta.get('Eenheid',{}).get('Code') != 'cm' or meta.get('Hoedanigheid',{}).get('Code') != 'NAP': continue
                           for item in series.get('MetingenLijst') or []:
                               try:
                                   value = float(item['Meetwaarde']['Waarde_Numeriek'])
