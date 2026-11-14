@@ -42,7 +42,7 @@ jobs:
                   print(name, type(exc).__name__, str(exc))
                   failures.append(name)
           if failures:
-              raise SystemExit('Failed probes: '+', '.join(failures))
+              print('Failed initial probes:', ', '.join(failures))
           # Inspect actual forecast rows and station-specific metadata, not just HTTP status.
           from html.parser import HTMLParser
           class Rows(HTMLParser):
@@ -58,17 +58,19 @@ jobs:
                       self.row.append(' '.join(' '.join(self.cell).split())); self.cell=None
                   if tag=='tr' and self.row is not None:
                       self.rows.append(self.row); self.row=None; self.cell=None
-          p=Rows(); p.feed(open('elwis.txt').read())
+          from pathlib import Path
+          p=Rows(); p.feed(Path('elwis.txt').read_text() if Path('elwis.txt').exists() else '')
           print('ELWIS TABLE ROWS', json.dumps(p.rows, ensure_ascii=False)[:18000])
-          catalog=json.load(open('rws-catalog.json'))
+          catalog=json.load(open('rws-catalog.json')) if Path('rws-catalog.json').exists() else {'LocatieLijst': []}
           from datetime import datetime, timedelta, timezone
           now=datetime.now(timezone.utc)
           def stamp(t): return t.isoformat(timespec='milliseconds')
           codes=('hansweert','terneuzen','yerseke','rotterdam.nieuwemaas.boompjes','rotterdam.lekhaven','rotterdam.eemhaven')
           locations={l['Code'].lower():l for l in catalog['LocatieLijst'] if l.get('Code')}
+          observation_failures = []
           for code in codes:
               if code not in locations:
-                  print('STATION NOT FOUND',code); continue
+                  print('STATION NOT FOUND',code); observation_failures.append(code); continue
               loc=locations[code]
               print('STATION',json.dumps(loc,ensure_ascii=False))
               for kind, metadata, begin, end in [
@@ -80,8 +82,14 @@ jobs:
                       req=urllib.request.Request('https://ddapi20-waterwebservices.rijkswaterstaat.nl/ONLINEWAARNEMINGENSERVICES/OphalenWaarnemingen',data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'})
                       with urllib.request.urlopen(req,timeout=25) as response: data=json.load(response)
                       print('OBSERVATIONS',code,kind,json.dumps(data,ensure_ascii=False)[:6500])
+                      if not data.get('WaarnemingenLijst'):
+                          observation_failures.append(code+' '+kind+' empty')
                       with open('rws-'+code+'-'+kind+'.json','w') as out: json.dump(data,out,ensure_ascii=False)
-                  except Exception as exc: print('OBSERVATION ERROR',code,kind,str(exc))
+                  except Exception as exc:
+                      print('OBSERVATION ERROR',code,kind,str(exc))
+                      observation_failures.append(code+' '+kind)
+          if failures or observation_failures:
+              raise SystemExit('Incomplete probes: '+', '.join(failures+observation_failures))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
